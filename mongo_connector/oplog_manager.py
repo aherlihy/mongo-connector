@@ -97,7 +97,7 @@ class OplogThread(threading.Thread):
 
     @property
     def fields(self):
-        if self._fields == set(['_id']):
+        if len(self._fields) == 1:
             return None  # fields can be None or fields + _id
         return list(self._fields)
 
