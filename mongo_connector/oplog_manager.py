@@ -85,6 +85,7 @@ class OplogThread(threading.Thread):
 
         # Set of fields to export
         self._fields = set(kwargs.get('fields', []))
+        self._fields.add('_id')
 
         LOG.info('OplogThread: Initializing oplog thread')
 
@@ -96,9 +97,9 @@ class OplogThread(threading.Thread):
 
     @property
     def fields(self):
-        if self._fields:
-            return list(self._fields)
-        return None
+        if self._fields == set(['_id']):
+            return None  # fields can be None or fields + _id
+        return list(self._fields)
 
     @fields.setter
     def fields(self, value):
@@ -107,7 +108,7 @@ class OplogThread(threading.Thread):
             # Always include _id field
             self._fields.add('_id')
         else:
-            self._fields = None
+            self._fields = set(['_id'])
 
     @property
     def namespace_set(self):
@@ -338,7 +339,7 @@ class OplogThread(threading.Thread):
 
     def filter_oplog_entry(self, entry):
         """Remove fields from an oplog entry that should not be replicated."""
-        if not self._fields:
+        if not self.fields:
             return entry
 
         def pop_excluded_fields(doc):

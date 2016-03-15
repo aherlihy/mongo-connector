@@ -460,13 +460,49 @@ class TestOplogManager(unittest.TestCase):
             filtered, {'op': 'u', 'o': {'a': 1, 'b': 2, 'c': 3}})
 
     def test_fields(self):
-        fields = ["_id","title","content","author"]
+        # Test with "_id" field in constructor
+        fields = ["_id", "title", "content", "author"]
         opman = OplogThread(
             primary_client=self.primary_conn,
             doc_managers=(DocManager(),),
             oplog_progress_dict=LockingDict(),
             fields = fields
         )
+        self.assertEqual(set(fields), opman._fields)
+        self.assertEqual(sorted(fields), sorted(opman.fields))
+
+        # Test without "_id" field in constructor
+        fields = ["title", "content", "author"]
+        opman = OplogThread(
+            primary_client=self.primary_conn,
+            doc_managers=(DocManager(),),
+            oplog_progress_dict=LockingDict(),
+            fields = fields
+        )
+        fields.append("_id")
+        self.assertEqual(set(fields), opman._fields)
+        self.assertEqual(sorted(fields), sorted(opman.fields))
+
+        # Test without "_id" field in constructor, use setter without _id
+        fields = ["title", "content", "author"]
+        opman = OplogThread(
+            primary_client=self.primary_conn,
+            doc_managers=(DocManager(),),
+            oplog_progress_dict=LockingDict(),
+        )
+        opman.fields = fields
+        fields.append("_id")
+        self.assertEqual(set(fields), opman._fields)
+        self.assertEqual(sorted(fields), sorted(opman.fields))
+
+        # Test without "_id" field in constructor, use setter with _id
+        fields = ["_id", "title", "content", "author"]
+        opman = OplogThread(
+            primary_client=self.primary_conn,
+            doc_managers=(DocManager(),),
+            oplog_progress_dict=LockingDict(),
+            )
+        opman.fields = fields
         self.assertEqual(set(fields), opman._fields)
         self.assertEqual(sorted(fields), sorted(opman.fields))
 
