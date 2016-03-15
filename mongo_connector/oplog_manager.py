@@ -85,7 +85,6 @@ class OplogThread(threading.Thread):
 
         # Set of fields to export
         self._fields = set(kwargs.get('fields', []))
-        self._fields.add('_id')
 
         LOG.info('OplogThread: Initializing oplog thread')
 
@@ -97,9 +96,9 @@ class OplogThread(threading.Thread):
 
     @property
     def fields(self):
-        if len(self._fields) == 1:
-            return None  # fields can be None or fields + _id
-        return list(self._fields)
+        if self._fields:
+            return list(self._fields)
+        return None
 
     @fields.setter
     def fields(self, value):
@@ -108,7 +107,7 @@ class OplogThread(threading.Thread):
             # Always include _id field
             self._fields.add('_id')
         else:
-            self._fields = set(['_id'])
+            self._fields = set([])
 
     @property
     def namespace_set(self):
@@ -204,7 +203,7 @@ class OplogThread(threading.Thread):
                         # Take fields out of the oplog entry that
                         # shouldn't be replicated. This may nullify
                         # the document if there's nothing to do.
-                        if not self.filter_oplog_entry(entry):
+                        if not self.filter_oplog_entry(entry).get('o'):
                             continue
 
                         #sync the current oplog operation
@@ -339,12 +338,17 @@ class OplogThread(threading.Thread):
 
     def filter_oplog_entry(self, entry):
         """Remove fields from an oplog entry that should not be replicated."""
-        if not self.fields:
+        if not self._fields:
             return entry
 
         def pop_excluded_fields(doc):
-            for key in set(doc) - self._fields:
+            # always include _id
+            fields_with_id = self._fields.union(set(['_id']))
+            for key in set(doc) - fields_with_id:
                 doc.pop(key)
+            if '_id' not in self._fields and len(doc) == 1:
+                # We've got a document with only _id, which should be empty
+                doc.pop('_id')
 
         entry_o = entry['o']
         # 'i' indicates an insert. 'o' field is the doc to be inserted.
