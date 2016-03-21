@@ -473,8 +473,8 @@ class TestOplogManager(unittest.TestCase):
         extra_fields = fields + ['extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
-             'o': {f: 1 for f in extra_fields}})['o']
-        self.assertEqual({f: 1 for f in fields}, filtered)
+             'o': dict((f, 1) for f in extra_fields)})['o']
+        self.assertEqual(dict((f, 1) for f in fields), filtered)
 
         # Test without "_id" field in constructor
         fields = ["title", "content", "author"]
@@ -489,8 +489,8 @@ class TestOplogManager(unittest.TestCase):
         extra_fields = fields + ['extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
-             'o': {f: 1 for f in extra_fields}})['o']
-        self.assertEqual({f: 1 for f in fields}, filtered)
+             'o': dict((f, 1) for f in extra_fields)})['o']
+        self.assertEqual(dict((f, 1) for f in fields), filtered)
 
         # Test with only "_id" field
         fields = ["_id"]
@@ -505,7 +505,7 @@ class TestOplogManager(unittest.TestCase):
         extra_fields = fields + ['extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
-             'o': {f: 1 for f in extra_fields}})['o']
+             'o': dict((f, 1) for f in extra_fields)})['o']
         self.assertEqual({'_id': 1}, filtered)
 
         # Test with no fields set
@@ -519,8 +519,8 @@ class TestOplogManager(unittest.TestCase):
         extra_fields = ['_id', 'extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
-             'o': {f: 1 for f in extra_fields}})['o']
-        self.assertEqual({f: 1 for f in extra_fields}, filtered)
+             'o': dict((f, 1) for f in extra_fields)})['o']
+        self.assertEqual(dict((f, 1) for f in extra_fields), filtered)
 
 
 if __name__ == '__main__':
