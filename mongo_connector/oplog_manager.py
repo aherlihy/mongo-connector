@@ -203,7 +203,7 @@ class OplogThread(threading.Thread):
                         # Take fields out of the oplog entry that
                         # shouldn't be replicated. This may nullify
                         # the document if there's nothing to do.
-                        if not self.filter_oplog_entry(entry).get('o'):
+                        if not self.filter_oplog_entry(entry):
                             continue
 
                         #sync the current oplog operation
@@ -346,9 +346,6 @@ class OplogThread(threading.Thread):
             fields_with_id = self._fields.union(set(['_id']))
             for key in set(doc) - fields_with_id:
                 doc.pop(key)
-            if '_id' not in self._fields and len(doc) == 1:
-                # We've got a document with only _id, which should be empty
-                doc.pop('_id')
 
         entry_o = entry['o']
         # 'i' indicates an insert. 'o' field is the doc to be inserted.
