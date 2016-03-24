@@ -84,22 +84,6 @@ class OplogThread(threading.Thread):
         self.continue_on_error = kwargs.get('continue_on_error', False)
 
         self.fields = kwargs.get('fields', [])
-        # Set of fields to export
-        # self._fields = set(kwargs.get('fields', []))
-        # self._fieldsdict = {}
-        # if self._fields:
-        #     for field in self._fields:
-        #         if "." in field:
-        #             fieldparts = field.split(".")
-        #             curlevel = self._fieldsdict
-        #             for fieldpart in fieldparts:
-        #                 if fieldpart not in curlevel:
-        #                     curlevel[fieldpart] = {}
-        #                 curlevel = curlevel[fieldpart]
-        #         # also add dot-notated fields to support inserts as well
-        #         # as updates with $set and $unset
-        #         if field not in self._fieldsdict:
-        #             self._fieldsdict[field] = {}
 
         LOG.info('OplogThread: Initializing oplog thread')
 
@@ -117,11 +101,8 @@ class OplogThread(threading.Thread):
 
     @fields.setter
     def fields(self, value):
-        print "FIELDS SETTER BEING CALLED with %s" % value
         if value:
             self._fields = set(value)
-            # Always include _id field
-            self._fields.add('_id')
 
             # Create _fieldsdict which allows to handle all types of oplog
             # updates (nested as well as flattened)
