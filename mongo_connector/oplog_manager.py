@@ -84,7 +84,21 @@ class OplogThread(threading.Thread):
         self.continue_on_error = kwargs.get('continue_on_error', False)
 
         # Set of fields to export
-        self.fields = set(kwargs.get('fields', []))
+        self._fields = set(kwargs.get('fields', []))
+        self._fieldsdict = {}
+        if self._fields:
+            for field in self._fields:
+                if "." in field:
+                    fieldparts = field.split(".")
+                    curlevel = self._fieldsdict
+                    for fieldpart in fieldparts:
+                        if fieldpart not in curlevel:
+                            curlevel[fieldpart] = {}
+                        curlevel = curlevel[fieldpart]
+                # also add dot-notated fields to support inserts as well
+                # as updates with $set and $unset
+                if field not in self._fieldsdict:
+                    self._fieldsdict[field] = {}
 
         LOG.info('OplogThread: Initializing oplog thread')
 
@@ -107,7 +121,7 @@ class OplogThread(threading.Thread):
             # Always include _id field
             self._fields.add('_id')
 
-            # Create _fieldsdict which allows to handle all types of oplog 
+            # Create _fieldsdict which allows to handle all types of oplog
             # updates (nested as well as flattened)
             self._fieldsdict = {}
             for field in self._fields:
@@ -118,7 +132,7 @@ class OplogThread(threading.Thread):
                         if fieldpart not in curlevel:
                             curlevel[fieldpart] = {}
                         curlevel = curlevel[fieldpart]
-                # also add dot-notated fields to support inserts as well 
+                # also add dot-notated fields to support inserts as well
                 # as updates with $set and $unset
                 if field not in self._fieldsdict:
                     self._fieldsdict[field] = {}
@@ -359,20 +373,21 @@ class OplogThread(threading.Thread):
             return entry
 
         def pop_excluded_fields(doc, fields=None):
-            # NOTICE: doc can be a flattened, dot-notated object (when 
-            # updating via $set/$unset), but also a deep nested object (e.g. 
+            # NOTICE: doc can be a flattened, dot-notated object (when
+            # updating via $set/$unset), but also a deep nested object (e.g.
             # on inserts)
 
-            # initialize fields on first call with _fieldsdict to enable 
+            # initialize fields on first call with _fieldsdict to enable
             # recursion
             if fields == None:
                 fields = self._fieldsdict
 
+            fields_with_id = self._fields.union(set(['_id']))
             # remove keys which are not in fields
-            for key in set(doc) - set(fields):
+            for key in set(doc) - set(fields_with_id):
                 doc.pop(key)
-            
-            # further investigate sub (nested) fields, only if doc contains 
+
+            # further investigate sub (nested) fields, only if doc contains
             # it and remove excluded sub-props
             for field, subfields in fields.items():
                 if field in doc and subfields != {}:
