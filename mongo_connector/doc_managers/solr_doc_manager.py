@@ -63,7 +63,7 @@ class DocManager(DocManagerBase):
                  unique_key='_id', chunk_size=DEFAULT_MAX_BULK, **kwargs):
         """Verify Solr URL and establish a connection.
         """
-        self.url = url
+        self.url = url # add core1?
         self.solr = Solr(url, **kwargs.get('clientOptions', {}))
         self.unique_key = unique_key
         # pysolr does things in milliseconds

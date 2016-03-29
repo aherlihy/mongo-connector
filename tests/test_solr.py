@@ -93,8 +93,12 @@ class TestSolr(SolrTestCase):
         """Tests insert
         """
 
+        result = self.solr_conn.search('*:*')
+        print "before res=", list(result)
         self.conn['test']['test'].insert_one({'name': 'paulie'})
         assert_soon(lambda: sum(1 for _ in self.solr_conn.search('*:*')) > 0)
+        result = self.solr_conn.search('*:*')
+        print "after res=", list(result)
         result_set_1 = list(self.solr_conn.search('name:paulie'))
         self.assertEqual(len(result_set_1), 1)
         result_set_2 = self.conn['test']['test'].find_one()
