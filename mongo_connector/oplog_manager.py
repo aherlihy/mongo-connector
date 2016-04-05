@@ -16,6 +16,7 @@
 """
 
 import bson
+import collections
 import logging
 try:
     import Queue as queue
@@ -104,8 +105,6 @@ class OplogThread(threading.Thread):
     def fields(self, value):
         if value:
             self._fields = set(value)
-            # Always include _id field
-            self._fields.add('_id')
         else:
             self._fields = set([])
 
@@ -336,26 +335,52 @@ class OplogThread(threading.Thread):
         self.running = False
         threading.Thread.join(self)
 
+    def _pop_excluded_fields(self, doc):
+        fields = self._fields.union(set(['_id']))
+        flatlist = []
+
+        def flattenr(subdoc, field, sofar):
+            if not isinstance(subdoc[field], collections.MutableMapping):
+                flatlist.append(sofar)
+            else:
+                for f2 in subdoc[field].keys():
+                    flattenr(subdoc[field], f2, sofar + '.' + f2)
+
+        for k in doc.keys():
+            flattenr(doc, k, k)
+
+        fields_to_remove = set(flatlist) - fields
+
+        for field in fields_to_remove:
+            curr_doc = doc
+            dots = field.split('.')
+            to_pop = 0
+            for p in range(len(dots)-1):
+                part = dots[p]
+                if len(curr_doc[part].keys()) == 1:
+                    # If field to be removed is the only field, remove parent.
+                    to_pop = p
+                    break
+                curr_doc = curr_doc[part]
+                to_pop = p+1
+            curr_doc.pop(dots[to_pop])
+
+        print "doc", doc
+
     def filter_oplog_entry(self, entry):
         """Remove fields from an oplog entry that should not be replicated."""
         if not self._fields:
             return entry
 
-        def pop_excluded_fields(doc):
-            # always include _id
-            fields_with_id = self._fields.union(set(['_id']))
-            for key in set(doc) - fields_with_id:
-                doc.pop(key)
-
         entry_o = entry['o']
         # 'i' indicates an insert. 'o' field is the doc to be inserted.
         if entry['op'] == 'i':
-            pop_excluded_fields(entry_o)
+            self._pop_excluded_fields(entry_o)
         # 'u' indicates an update. The 'o' field describes an update spec
         # if '$set' or '$unset' are present.
         elif entry['op'] == 'u' and ('$set' in entry_o or '$unset' in entry_o):
-            pop_excluded_fields(entry_o.get("$set", {}))
-            pop_excluded_fields(entry_o.get("$unset", {}))
+            self._pop_excluded_fields(entry_o.get("$set", {}))
+            self._pop_excluded_fields(entry_o.get("$unset", {}))
             # not allowed to have empty $set/$unset, so remove if empty
             if "$set" in entry_o and not entry_o['$set']:
                 entry_o.pop("$set")
@@ -366,7 +391,7 @@ class OplogThread(threading.Thread):
         # 'u' indicates an update. The 'o' field is the replacement document
         # if no '$set' or '$unset' are present.
         elif entry['op'] == 'u':
-            pop_excluded_fields(entry_o)
+            self._pop_excluded_fields(entry_o)
 
         return entry
 
