@@ -522,6 +522,72 @@ class TestOplogManager(unittest.TestCase):
              'o': dict((f, 1) for f in extra_fields)})['o']
         self.assertEqual(dict((f, 1) for f in extra_fields), filtered)
 
+    def test_nested_fields(self):
+        def check_nested(document, fields, filtered_document):
+            opman = OplogThread(
+                primary_client=self.primary_conn,
+                doc_managers=(DocManager(),),
+                oplog_progress_dict=LockingDict(),
+                fields = fields
+            )
+            self.assertEqual(set(fields), opman._fields)
+            self.assertEqual(sorted(fields), sorted(opman.fields))
+            filtered_result = opman.filter_oplog_entry(
+                {'op': 'i',
+                 'o': document})['o']
+            self.assertEqual(filtered_result, filtered_document)
+
+        # # Without _id.
+        document = {'a': {'b': {'c': 2, 'e': 3}, 'e': 5},
+                    'b': 2,
+                    'c': {'g': 1}}
+        fields = ['a.b.c', 'a.e']
+        filtered_document = {'a': {'b': {'c': 2}, 'e': 5}}
+        check_nested(document, fields, filtered_document)
+        # With _id.
+        document = {'a': {'b': {'c': 2, 'e': 3}, 'e': 5},
+                    'b': 2,
+                    'c': {'g': 1},
+                    '_id': 1}
+        fields = ['a.b.c', 'a.e']
+        filtered_document = {'a': {'b': {'c': 2}, 'e': 5}, '_id': 1}
+        check_nested(document, fields, filtered_document)
+
+        document = {'a': {'b': {'c': {'d': 1}}}, '-a': {'-b': {'-c': 2}}}
+        fields = ['a.b', '-a']
+        filtered_document = document.copy()
+        check_nested(document, fields, filtered_document)
+
+        document = {'a': {'b': {'c': {'d': 1}}}, '-a': {'-b': {'-c': 2}}}
+        fields = ['a', '-a.-b']
+        filtered_document = document.copy()
+        check_nested(document, fields, filtered_document)
+        document = {'a': {'b': {'c': {'d': 1}}}, '-a': {'-b': {'-c': 2}},
+                    '_id': 1}
+        fields = ['a.b', '-a']
+        filtered_document = document.copy()
+        check_nested(document, fields, filtered_document)
+        fields = ['a', '-a.-b']
+        check_nested(document, fields, filtered_document)
+
+        document = {'test': 1}
+        fields = ['doesnt_exist']
+        filtered_document = {}
+        check_nested(document, fields, filtered_document)
+
+        document = {'a': {'b': 1}, 'b': {'a': 1}}
+        fields = ['a.b', 'b.a']
+        filtered_document = document.copy()
+        check_nested(document, fields, filtered_document)
+
+        document = {'a': {'b': {'a': {'b': 1}}}, 'c': {'a': {'b': 1}}}
+        fields = ['a.b']
+        filtered_document = {'a': {'b': {'a': {'b': 1}}}}
+        check_nested(document, fields, filtered_document)
+
+
+
+
 
 if __name__ == '__main__':
     unittest.main()

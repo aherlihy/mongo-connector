@@ -337,21 +337,23 @@ class OplogThread(threading.Thread):
 
     def _pop_excluded_fields(self, doc):
         fields = self._fields.union(set(['_id']))
+        # Create list of fields in . notation
         flatlist = []
-
-        def flattenr(subdoc, field, sofar):
+        def flatten(subdoc, field, sofar):
             if not isinstance(subdoc[field], collections.MutableMapping):
                 flatlist.append(sofar)
             else:
                 for f2 in subdoc[field].keys():
-                    flattenr(subdoc[field], f2, sofar + '.' + f2)
-
+                    flatten(subdoc[field], f2, sofar + '.' + f2)
         for k in doc.keys():
-            flattenr(doc, k, k)
+            flatten(doc, k, k)
+        # Remove included fields
+        for f1 in list(flatlist):
+            for f2 in fields:
+                if f1.startswith(f2):
+                    flatlist.remove(f1)
 
-        fields_to_remove = set(flatlist) - fields
-
-        for field in fields_to_remove:
+        for field in flatlist:
             curr_doc = doc
             dots = field.split('.')
             to_pop = 0
@@ -363,9 +365,8 @@ class OplogThread(threading.Thread):
                     break
                 curr_doc = curr_doc[part]
                 to_pop = p+1
-            curr_doc.pop(dots[to_pop])
-
-        print "doc", doc
+            if to_pop is not None:
+                curr_doc.pop(dots[to_pop])
 
     def filter_oplog_entry(self, entry):
         """Remove fields from an oplog entry that should not be replicated."""
