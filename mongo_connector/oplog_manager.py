@@ -16,7 +16,6 @@
 """
 
 import bson
-import collections
 import logging
 try:
     import Queue as queue
@@ -85,7 +84,7 @@ class OplogThread(threading.Thread):
         self.continue_on_error = kwargs.get('continue_on_error', False)
 
         # Set of fields to export
-        self._fields = set(kwargs.get('fields', []))
+        self.fields = set(kwargs.get('fields', []))
 
         LOG.info('OplogThread: Initializing oplog thread')
 
@@ -105,6 +104,8 @@ class OplogThread(threading.Thread):
     def fields(self, value):
         if value:
             self._fields = set(value)
+            # Always include _id field
+            self._fields.add('_id')
         else:
             self._fields = set([])
 
@@ -336,11 +337,10 @@ class OplogThread(threading.Thread):
         threading.Thread.join(self)
 
     def _pop_excluded_fields(self, doc):
-        fields = self._fields.union(set(['_id']))
         # Create list of fields in . notation
         flatlist = []
         def flatten(subdoc, field, sofar):
-            if not isinstance(subdoc[field], collections.MutableMapping):
+            if not isinstance(subdoc[field], dict):
                 flatlist.append(sofar)
             else:
                 for f2 in subdoc[field].keys():
@@ -349,8 +349,8 @@ class OplogThread(threading.Thread):
             flatten(doc, k, k)
         # Remove included fields
         for f1 in list(flatlist):
-            for f2 in fields:
-                if f1.startswith(f2):
+            for f2 in self._fields:
+                if f1 == f2 or f1.startswith(f2 + '.'):
                     flatlist.remove(f1)
 
         for field in flatlist:

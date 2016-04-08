@@ -484,6 +484,7 @@ class TestOplogManager(unittest.TestCase):
             oplog_progress_dict=LockingDict(),
             fields = fields
         )
+        fields.append('_id')
         self.assertEqual(set(fields), opman._fields)
         self.assertEqual(sorted(fields), sorted(opman.fields))
         extra_fields = fields + ['extra1', 'extra2']
@@ -547,6 +548,7 @@ class TestOplogManager(unittest.TestCase):
             oplog_progress_dict=LockingDict(),
             )
         opman.fields = fields
+        fields.append('_id')
         self.assertEqual(set(fields), opman._fields)
         self.assertEqual(sorted(fields), sorted(opman.fields))
         extra_fields = fields + ['extra1', 'extra2']
@@ -594,6 +596,7 @@ class TestOplogManager(unittest.TestCase):
                 oplog_progress_dict=LockingDict(),
                 fields = fields
             )
+            fields.append('_id')
             self.assertEqual(set(fields), opman._fields)
             self.assertEqual(sorted(fields), sorted(opman.fields))
             filtered_result = opman.filter_oplog_entry(
@@ -601,14 +604,13 @@ class TestOplogManager(unittest.TestCase):
                  'o': document})['o']
             self.assertEqual(filtered_result, filtered_document)
 
-        # # Without _id.
         document = {'a': {'b': {'c': 2, 'e': 3}, 'e': 5},
                     'b': 2,
                     'c': {'g': 1}}
         fields = ['a.b.c', 'a.e']
         filtered_document = {'a': {'b': {'c': 2}, 'e': 5}}
         check_nested(document, fields, filtered_document)
-        # With _id.
+
         document = {'a': {'b': {'c': 2, 'e': 3}, 'e': 5},
                     'b': 2,
                     'c': {'g': 1},
@@ -649,8 +651,10 @@ class TestOplogManager(unittest.TestCase):
         filtered_document = {'a': {'b': {'a': {'b': 1}}}}
         check_nested(document, fields, filtered_document)
 
-
-
+        document = {'name': 'anna', 'name_of_cat': 'pushkin'}
+        fields = ['name']
+        filtered_document = {'name': 'anna'}
+        check_nested(document, fields, filtered_document)
 
 
 if __name__ == '__main__':
