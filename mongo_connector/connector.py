@@ -670,7 +670,8 @@ def get_config_options():
         "Specify a field or fields to include in the export. "
         "Use a comma separated list of fields to specify multiple "
         "fields. The '_id', 'ns' and '_ts' fields are always "
-        "exported.")
+        "exported. Supports dot notation for document fields but not for "
+        "arrays.")
 
     def apply_namespaces(option, cli_values):
         if cli_values['ns_set']:

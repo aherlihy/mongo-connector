@@ -369,7 +369,9 @@ class OplogThread(threading.Thread):
                 curr_doc.pop(dots[to_pop])
 
     def filter_oplog_entry(self, entry):
-        """Remove fields from an oplog entry that should not be replicated."""
+        """Remove fields from an oplog entry that should not be replicated.
+
+        NOTE: this does not support array indexing, for example 'a.b.2'"""
         if not self._fields:
             return entry
 
