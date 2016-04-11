@@ -668,10 +668,14 @@ def get_config_options():
         "-i", "--fields", dest="fields", help=
         "Used to specify the list of fields to export. "
         "Specify a field or fields to include in the export. "
-        "Use a comma separated list of fields to specify multiple "
-        "fields. The '_id', 'ns' and '_ts' fields are always "
-        "exported. Supports dot notation for document fields but not for "
-        "arrays.")
+        "Use a comma separated list of fields to specify multiple fields. "
+        "WARNING: Mongo-connector individually removes fields that are not "
+        "included in this list. It may be time-intensive if your documents are "
+        "large and you are not including many fields."
+        "The '_id', 'ns' and '_ts' fields are always "
+        "exported. Supports dot notation for document fields but cannot span "
+        "arrays. For example, {'a': [{'b': 1}]}, the path 'a.b' will not "
+        "work, neither will 'a.1'.")
 
     def apply_namespaces(option, cli_values):
         if cli_values['ns_set']:

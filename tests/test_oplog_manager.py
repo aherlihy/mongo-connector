@@ -524,7 +524,7 @@ class TestOplogManager(unittest.TestCase):
         self.assertEqual(dict((f, 1) for f in extra_fields), filtered)
 
     def test_fields_attr(self):
-        # Test with "_id" field in constructor
+        # Test with "_id" field included in fields
         fields = ["_id", "title", "content", "author"]
         opman = OplogThread(
             primary_client=self.primary_conn,
@@ -540,7 +540,7 @@ class TestOplogManager(unittest.TestCase):
              'o': dict((f, 1) for f in extra_fields)})['o']
         self.assertEqual(dict((f, 1) for f in fields), filtered)
 
-        # Test without "_id" field in constructor
+        # Test without "_id" field included in fields
         fields = ["title", "content", "author"]
         opman = OplogThread(
             primary_client=self.primary_conn,
