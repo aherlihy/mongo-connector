@@ -86,6 +86,16 @@ class OplogThread(threading.Thread):
         # Set of fields to export
         self.fields = kwargs.get('fields', [])
 
+        # Set of fields to exclude.
+        self.exclude_fields = kwargs.get('exclude_fields', [])
+
+        if kwargs.get('exclude_fields', []) and kwargs.get('fields', []):
+            LOG.warning("OplogThread: Cannot set both 'fields' and "
+                        "'exclude_fields'. Ignoring both.") # TODO: what to do??
+            self.fields = None
+            self.exclude_fields = None
+            self._projection = None
+
         LOG.info('OplogThread: Initializing oplog thread')
 
         self.oplog = self.primary_client.local.oplog.rs
@@ -100,14 +110,37 @@ class OplogThread(threading.Thread):
             return list(self._fields)
         return None
 
+    @property
+    def exclude_fields(self):
+        if self._exclude_fields:
+            return list(self._exclude_fields)
+        return None
+
     @fields.setter
     def fields(self, value):
         if value:
             self._fields = set(value)
             # Always include _id field
             self._fields.add('_id')
+            self._projection = dict((field, 1) for field in self.fields)
+            self._exclude_fields = set([])
         else:
+            self._projection = None
             self._fields = set([])
+
+    @exclude_fields.setter
+    def exclude_fields(self, value):
+        if value:
+            self._exclude_fields = set(value)
+            if '_id' in value:
+                LOG.warning("OplogThread: Cannot exclude '_id' field, "
+                            "ignoring")
+                self._exclude_fields.remove('_id')
+            self._projection = dict((field, 0) for field in self.exclude_fields)
+            self._fields = set([])
+        else:
+            self._exclude_fields = set([])
+            self._projection = None
 
     @property
     def namespace_set(self):
@@ -337,23 +370,8 @@ class OplogThread(threading.Thread):
         threading.Thread.join(self)
 
     def _pop_excluded_fields(self, doc):
-        # Create list of fields in . notation
-        flatlist = []
-        def flatten(subdoc, field, sofar):
-            if not isinstance(subdoc[field], dict):
-                flatlist.append(sofar)
-            else:
-                for f2 in subdoc[field].keys():
-                    flatten(subdoc[field], f2, sofar + '.' + f2)
-        for k in doc.keys():
-            flatten(doc, k, k)
-        # Remove included fields
-        for f1 in list(flatlist):
-            for f2 in self._fields:
-                if f1 == f2 or f1.startswith(f2 + '.'):
-                    flatlist.remove(f1)
-
-        for field in flatlist:
+        # Remove all the fields that were passed in exclude_fields.
+        for field in self._exclude_fields:
             curr_doc = doc
             dots = field.split('.')
             to_pop = 0
@@ -367,23 +385,52 @@ class OplogThread(threading.Thread):
                 to_pop = p+1
             if to_pop is not None:
                 curr_doc.pop(dots[to_pop])
+        return doc  # Need this to be similar to copy_included_fields.
+
+    def _copy_included_fields(self, doc):
+        # Copy over included fields to new doc
+        new_doc = {}
+        for field in self.fields:
+            if field == '_id' and '_id' not in doc:
+                continue
+            bad_field = False
+            element  = doc
+            curr_doc = new_doc
+            dots = field.split('.')
+            for d in dots[:-1]:
+                if d not in curr_doc:
+                    curr_doc[d] = {}
+                if d not in element:
+                    bad_field = True
+                    break
+                element = element[d]
+                curr_doc = curr_doc[d]
+            if not bad_field and dots[-1] in element:
+                curr_doc[dots[-1]] = element[dots[-1]]
+        return new_doc
 
     def filter_oplog_entry(self, entry):
         """Remove fields from an oplog entry that should not be replicated.
 
         NOTE: this does not support array indexing, for example 'a.b.2'"""
-        if not self._fields:
+        if not self._fields and not self._exclude_fields:
             return entry
+        elif self._fields is not None:
+            filter_fields = self._copy_included_fields
+        else:
+            filter_fields = self._pop_excluded_fields
 
         entry_o = entry['o']
         # 'i' indicates an insert. 'o' field is the doc to be inserted.
         if entry['op'] == 'i':
-            self._pop_excluded_fields(entry_o)
+            entry['o'] = filter_fields(entry_o)
         # 'u' indicates an update. The 'o' field describes an update spec
         # if '$set' or '$unset' are present.
-        elif entry['op'] == 'u' and ('$set' in entry_o or '$unset' in entry_o):
-            self._pop_excluded_fields(entry_o.get("$set", {}))
-            self._pop_excluded_fields(entry_o.get("$unset", {}))
+        elif entry['op'] == 'u':
+            if '$set' in entry_o:
+                entry['o']["$set"] = filter_fields(entry_o["$set"])
+            if '$unset' in entry_o:
+                entry['o']["$unset"] = filter_fields(entry_o["$unset"])
             # not allowed to have empty $set/$unset, so remove if empty
             if "$set" in entry_o and not entry_o['$set']:
                 entry_o.pop("$set")
@@ -394,7 +441,7 @@ class OplogThread(threading.Thread):
         # 'u' indicates an update. The 'o' field is the replacement document
         # if no '$set' or '$unset' are present.
         elif entry['op'] == 'u':
-            self._pop_excluded_fields(entry_o)
+            entry['o'] = filter_fields(entry_o)
 
         return entry
 
@@ -458,20 +505,21 @@ class OplogThread(threading.Thread):
             last_id = None
             attempts = 0
 
+
             # Loop to handle possible AutoReconnect
             while attempts < 60:
                 target_coll = self.primary_client[database][coll]
                 if not last_id:
                     cursor = util.retry_until_ok(
                         target_coll.find,
-                        projection=self.fields,
+                        projection=self._projection,
                         sort=[("_id", pymongo.ASCENDING)]
                     )
                 else:
                     cursor = util.retry_until_ok(
                         target_coll.find,
                         {"_id": {"$gt": last_id}},
-                        projection=self.fields,
+                        projection=self._projection,
                         sort=[("_id", pymongo.ASCENDING)]
                     )
                 try:
@@ -775,7 +823,7 @@ class OplogThread(threading.Thread):
                 to_update = util.retry_until_ok(
                     client[database][coll].find,
                     {'_id': {'$in': bson_obj_id_list}},
-                    projection=self.fields
+                    projection=self._projection
                 )
                 #doc list are docs in target system, to_update are
                 #docs in mongo

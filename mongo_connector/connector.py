@@ -154,6 +154,7 @@ class Connector(threading.Thread):
             auth_username=config['authentication.adminUsername'],
             auth_key=auth_key,
             fields=config['fields'],
+            exclude_fields=config['exclude_fields'],
             ns_set=config['namespaces.include'],
             dest_mapping=config['namespaces.mapping'],
             gridfs_set=config['namespaces.gridfs'],
@@ -666,8 +667,6 @@ def get_config_options():
     # -i to specify the list of fields to export
     fields.add_cli(
         "-i", "--fields", dest="fields", help=
-        "Used to specify the list of fields to export. "
-        "Specify a field or fields to include in the export. "
         "Use a comma separated list of fields to specify multiple fields. "
         "WARNING: Mongo-connector individually removes fields that are not "
         "included in this list. It may be time-intensive if your documents are "
@@ -675,7 +674,39 @@ def get_config_options():
         "The '_id', 'ns' and '_ts' fields are always "
         "exported. Supports dot notation for document fields but cannot span "
         "arrays. For example, {'a': [{'b': 1}]}, the path 'a.b' will not "
-        "work, neither will 'a.1'.")
+        "work, neither will 'a.1'. "
+        "Cannot use both 'fields' and exclude_fields.")
+
+    def apply_exclude_fields(option, cli_values):
+        if cli_values['exclude_fields']:
+            option.value = cli_values['exclude_fields'].split(",")
+        for field in option.value:
+            if '.' in field:
+                print(
+                    "WARNING: mongo-connector can only successfully filter "
+                    "sub-document fields for inserts and updates, "
+                    "not replacements. To catch all changes on "
+                    "a sub-document field, specify the name of the "
+                    "sub-document instead. You are seeing this "
+                    "message because you passed the name of a nested field "
+                    "to the 'fields' option: %s" % field)
+                break
+
+    exclude_fields = add_option(
+        config_key="exclude_fields",
+        default=[],
+        type=list,
+        apply_function=apply_exclude_fields)
+
+    # -i to specify the list of fields to exclude
+    exclude_fields.add_cli(
+        "-i", "--exclude_fields", dest="exclude_fields", help=
+        "Used to specify the list of fields to exclude. "
+        "All other fields will be included."
+        "Specify a field or fields to exclude in the export. "
+        "Use a comma separated list of fields to specify multiple "
+        "fields. The '_id', 'ns' and '_ts' fields are always "
+        "exported. Cannot use both fields and exclude_fields.")
 
     def apply_namespaces(option, cli_values):
         if cli_values['ns_set']:
