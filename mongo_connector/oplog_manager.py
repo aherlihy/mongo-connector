@@ -426,7 +426,7 @@ class OplogThread(threading.Thread):
             entry['o'] = filter_fields(entry_o)
         # 'u' indicates an update. The 'o' field describes an update spec
         # if '$set' or '$unset' are present.
-        elif entry['op'] == 'u':
+        elif entry['op'] == 'u' and ('$set' in entry_o or '$unset' in entry_o):
             if '$set' in entry_o:
                 entry['o']["$set"] = filter_fields(entry_o["$set"])
             if '$unset' in entry_o:

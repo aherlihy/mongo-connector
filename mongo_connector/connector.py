@@ -700,7 +700,7 @@ def get_config_options():
 
     # -i to specify the list of fields to exclude
     exclude_fields.add_cli(
-        "-i", "--exclude_fields", dest="exclude_fields", help=
+        "-e", "--exclude_fields", dest="exclude_fields", help=
         "Used to specify the list of fields to exclude. "
         "All other fields will be included."
         "Specify a field or fields to exclude in the export. "
