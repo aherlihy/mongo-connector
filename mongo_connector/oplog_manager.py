@@ -88,7 +88,7 @@ class OplogThread(threading.Thread):
         self.exclude_fields = None
         if kwargs.get('exclude_fields', []) and kwargs.get('fields', []):
             LOG.warning("OplogThread: Cannot set both 'fields' and "
-                        "'exclude_fields'. Ignoring both.") # TODO: what to do??
+                        "'exclude_fields'. Ignoring both.")
         elif kwargs.get('fields', []):
             self.fields = kwargs['fields']
         elif kwargs.get('exclude_fields', []):
@@ -140,7 +140,8 @@ class OplogThread(threading.Thread):
             if not self._exclude_fields:
                 self._projection = None
             else:
-                self._projection = dict((field, 0) for field in self._exclude_fields)
+                self._projection = dict(
+                    (field, 0) for field in self._exclude_fields)
         else:
             self._exclude_fields = set([])
             self._fields = set([])
