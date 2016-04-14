@@ -94,7 +94,6 @@ class OplogThread(threading.Thread):
         elif kwargs.get('exclude_fields', []):
             self.exclude_fields = kwargs.get('exclude_fields', [])
 
-
         LOG.info('OplogThread: Initializing oplog thread')
 
         self.oplog = self.primary_client.local.oplog.rs
@@ -244,7 +243,7 @@ class OplogThread(threading.Thread):
                         if not self.filter_oplog_entry(entry):
                             continue
 
-                        #sync the current oplog operation
+                        # Sync the current oplog operation
                         operation = entry['op']
                         ns = entry['ns']
 
@@ -381,18 +380,17 @@ class OplogThread(threading.Thread):
             dots = field.split('.')
             remove_up_to = curr_doc
             remove = True
-            end = 0
-            for p in range(len(dots)):
-                part = dots[p]
+            end = dots[0]
+            for part in dots:
                 if type(curr_doc) is not dict or part not in curr_doc:
                     remove = False
                     break
                 elif len(curr_doc.keys()) != 1:
                     remove_up_to = curr_doc
-                    end = p
+                    end = part
                 curr_doc = curr_doc[part]
             if remove:
-                remove_up_to.pop(dots[end])
+                remove_up_to.pop(end)
         return doc  # Need this to be similar to copy_included_fields.
 
     def _copy_included_fields(self, doc):
@@ -402,17 +400,17 @@ class OplogThread(threading.Thread):
             if field == '_id' and '_id' not in doc:
                 continue
             bad_field = False
-            element  = doc
+            element = doc
             curr_doc = new_doc
             dots = field.split('.')
-            for d in dots[:-1]:
-                if d not in curr_doc:
-                    curr_doc[d] = {}
-                if d not in element:
+            for part in dots[:-1]:
+                if part not in curr_doc:
+                    curr_doc[part] = {}
+                if part not in element:
                     bad_field = True
                     break
-                element = element[d]
-                curr_doc = curr_doc[d]
+                element = element[part]
+                curr_doc = curr_doc[part]
             if not bad_field and dots[-1] in element:
                 curr_doc[dots[-1]] = element[dots[-1]]
         return new_doc
@@ -490,7 +488,7 @@ class OplogThread(threading.Thread):
         dump_set = self.namespace_set or []
         LOG.debug("OplogThread: Dumping set of collections %s " % dump_set)
 
-        #no namespaces specified
+        # No namespaces specified
         if not self.namespace_set:
             db_list = retry_until_ok(self.primary_client.database_names)
             for database in db_list:
@@ -512,7 +510,6 @@ class OplogThread(threading.Thread):
             database, coll = namespace.split('.', 1)
             last_id = None
             attempts = 0
-
 
             # Loop to handle possible AutoReconnect
             while attempts < 60:
@@ -606,7 +603,6 @@ class OplogThread(threading.Thread):
                 # mongo_connector.errors.ConnectionFailed
                 # mongo_connector.errors.OperationFailed
                 error_queue.put(sys.exc_info())
-
 
         # Extra threads (if any) that assist with collection dumps
         dumping_threads = []
@@ -833,9 +829,9 @@ class OplogThread(threading.Thread):
                     {'_id': {'$in': bson_obj_id_list}},
                     projection=self._projection
                 )
-                #doc list are docs in target system, to_update are
-                #docs in mongo
-                doc_hash = {}  # hash by _id
+                # Doc list are docs in target system, to_update are
+                # Docs in mongo
+                doc_hash = {}  # Hash by _id
                 for doc in doc_list:
                     doc_hash[bson.objectid.ObjectId(doc['_id'])] = doc
 
@@ -848,7 +844,7 @@ class OplogThread(threading.Thread):
                             to_index.append(doc)
                 retry_until_ok(collect_existing_docs)
 
-                #delete the inconsistent documents
+                # Delete the inconsistent documents
                 LOG.debug("OplogThread: Rollback, removing inconsistent "
                           "docs.")
                 remov_inc = 0
@@ -870,7 +866,7 @@ class OplogThread(threading.Thread):
                 LOG.debug("OplogThread: Rollback, removed %d docs." %
                           remov_inc)
 
-                #insert the ones from mongo
+                # Insert the ones from mongo
                 LOG.debug("OplogThread: Rollback, inserting documents "
                           "from mongo.")
                 insert_inc = 0
