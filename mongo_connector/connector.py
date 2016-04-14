@@ -668,14 +668,10 @@ def get_config_options():
     fields.add_cli(
         "-i", "--fields", dest="fields", help=
         "Use a comma separated list of fields to specify multiple fields. "
-        "WARNING: Mongo-connector individually removes fields that are not "
-        "included in this list. It may be time-intensive if your documents are "
-        "large and you are not including many fields."
+        "Will copy over the fields specified into a new document."
         "The '_id', 'ns' and '_ts' fields are always "
         "exported. Supports dot notation for document fields but cannot span "
-        "arrays. For example, {'a': [{'b': 1}]}, the path 'a.b' will not "
-        "work, neither will 'a.1'. "
-        "Cannot use both 'fields' and exclude_fields.")
+        "arrays. Cannot use both 'fields' and exclude_fields.")
 
     def apply_exclude_fields(option, cli_values):
         if cli_values['exclude_fields']:
@@ -702,11 +698,11 @@ def get_config_options():
     exclude_fields.add_cli(
         "-e", "--exclude_fields", dest="exclude_fields", help=
         "Used to specify the list of fields to exclude. "
-        "All other fields will be included."
-        "Specify a field or fields to exclude in the export. "
+        "These fields will be removed from the document."
         "Use a comma separated list of fields to specify multiple "
         "fields. The '_id', 'ns' and '_ts' fields are always "
-        "exported. Cannot use both fields and exclude_fields.")
+        "exported. Cannot use both fields and exclude_fields. Cannot index "
+        "into arrays (i.e. exclude_fields=['a.b.1']")
 
     def apply_namespaces(option, cli_values):
         if cli_values['ns_set']:

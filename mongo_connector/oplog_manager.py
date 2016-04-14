@@ -84,17 +84,16 @@ class OplogThread(threading.Thread):
         self.continue_on_error = kwargs.get('continue_on_error', False)
 
         # Set of fields to export
-        self.fields = kwargs.get('fields', [])
-
-        # Set of fields to exclude.
-        self.exclude_fields = kwargs.get('exclude_fields', [])
-
+        self.fields = None
+        self.exclude_fields = None
         if kwargs.get('exclude_fields', []) and kwargs.get('fields', []):
             LOG.warning("OplogThread: Cannot set both 'fields' and "
                         "'exclude_fields'. Ignoring both.") # TODO: what to do??
-            self.fields = None
-            self.exclude_fields = None
-            self._projection = None
+        elif kwargs.get('fields', []):
+            self.fields = kwargs['fields']
+        elif kwargs.get('exclude_fields', []):
+            self.exclude_fields = kwargs.get('exclude_fields', [])
+
 
         LOG.info('OplogThread: Initializing oplog thread')
 
@@ -122,24 +121,29 @@ class OplogThread(threading.Thread):
             self._fields = set(value)
             # Always include _id field
             self._fields.add('_id')
-            self._projection = dict((field, 1) for field in self.fields)
             self._exclude_fields = set([])
+            self._projection = dict((field, 1) for field in self._fields)
         else:
-            self._projection = None
             self._fields = set([])
+            self._exclude_fields = set([])
+            self._projection = None
 
     @exclude_fields.setter
     def exclude_fields(self, value):
         if value:
             self._exclude_fields = set(value)
+            self._fields = set([])
             if '_id' in value:
                 LOG.warning("OplogThread: Cannot exclude '_id' field, "
                             "ignoring")
                 self._exclude_fields.remove('_id')
-            self._projection = dict((field, 0) for field in self.exclude_fields)
-            self._fields = set([])
+            if not self._exclude_fields:
+                self._projection = None
+            else:
+                self._projection = dict((field, 0) for field in self._exclude_fields)
         else:
             self._exclude_fields = set([])
+            self._fields = set([])
             self._projection = None
 
     @property
@@ -374,17 +378,20 @@ class OplogThread(threading.Thread):
         for field in self._exclude_fields:
             curr_doc = doc
             dots = field.split('.')
-            to_pop = 0
-            for p in range(len(dots)-1):
+            remove_up_to = curr_doc
+            remove = True
+            end = 0
+            for p in range(len(dots)):
                 part = dots[p]
-                if len(curr_doc[part].keys()) == 1:
-                    # If field to be removed is the only field, remove parent.
-                    to_pop = p
+                if type(curr_doc) is not dict or part not in curr_doc:
+                    remove = False
                     break
+                elif len(curr_doc.keys()) != 1:
+                    remove_up_to = curr_doc
+                    end = p
                 curr_doc = curr_doc[part]
-                to_pop = p+1
-            if to_pop is not None:
-                curr_doc.pop(dots[to_pop])
+            if remove:
+                remove_up_to.pop(dots[end])
         return doc  # Need this to be similar to copy_included_fields.
 
     def _copy_included_fields(self, doc):
@@ -415,7 +422,7 @@ class OplogThread(threading.Thread):
         NOTE: this does not support array indexing, for example 'a.b.2'"""
         if not self._fields and not self._exclude_fields:
             return entry
-        elif self._fields is not None:
+        elif self._fields:
             filter_fields = self._copy_included_fields
         else:
             filter_fields = self._pop_excluded_fields
