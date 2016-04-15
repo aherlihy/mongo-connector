@@ -395,22 +395,6 @@ class OplogThread(threading.Thread):
         # Copy over included fields to new doc
         new_doc = {}
         for field in self.fields:
-            # if field == '_id' and '_id' not in doc:
-            #     continue
-            # bad_field = False
-            # element = doc
-            # curr_doc = new_doc
-            # dots = field.split('.')
-            # for part in dots[:-1]:
-            #     if part not in curr_doc:
-            #         curr_doc[part] = {}
-            #     if part not in element:
-            #         bad_field = True
-            #         break
-            #     element = element[part]
-            #     curr_doc = curr_doc[part]
-            # if not bad_field and dots[-1] in element:
-            #     curr_doc[dots[-1]] = element[dots[-1]]
             dots = field.split('.')
             curr_doc = doc
             for part in dots:
