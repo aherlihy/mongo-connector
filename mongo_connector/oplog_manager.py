@@ -87,8 +87,8 @@ class OplogThread(threading.Thread):
         self.fields = None
         self.exclude_fields = None
         if kwargs.get('exclude_fields', []) and kwargs.get('fields', []):
-            LOG.warning("OplogThread: Cannot set both 'fields' and "
-                        "'exclude_fields'. Ignoring both.")
+            raise errors.InvalidConfiguration(
+                "Cannot set both 'fields' and 'exclude_fields'.")
         elif kwargs.get('fields', []):
             self.fields = kwargs['fields']
         elif kwargs.get('exclude_fields', []):
@@ -379,17 +379,15 @@ class OplogThread(threading.Thread):
             curr_doc = doc
             dots = field.split('.')
             remove_up_to = curr_doc
-            remove = True
             end = dots[0]
             for part in dots:
-                if type(curr_doc) is not dict or part not in curr_doc:
-                    remove = False
+                if not isinstance(curr_doc, dict) or part not in curr_doc:
                     break
-                elif len(curr_doc.keys()) != 1:
+                elif len(curr_doc) != 1:
                     remove_up_to = curr_doc
                     end = part
                 curr_doc = curr_doc[part]
-            if remove:
+            else:
                 remove_up_to.pop(end)
         return doc  # Need this to be similar to copy_included_fields.
 
@@ -397,22 +395,38 @@ class OplogThread(threading.Thread):
         # Copy over included fields to new doc
         new_doc = {}
         for field in self.fields:
-            if field == '_id' and '_id' not in doc:
-                continue
-            bad_field = False
-            element = doc
-            curr_doc = new_doc
+            # if field == '_id' and '_id' not in doc:
+            #     continue
+            # bad_field = False
+            # element = doc
+            # curr_doc = new_doc
+            # dots = field.split('.')
+            # for part in dots[:-1]:
+            #     if part not in curr_doc:
+            #         curr_doc[part] = {}
+            #     if part not in element:
+            #         bad_field = True
+            #         break
+            #     element = element[part]
+            #     curr_doc = curr_doc[part]
+            # if not bad_field and dots[-1] in element:
+            #     curr_doc[dots[-1]] = element[dots[-1]]
             dots = field.split('.')
-            for part in dots[:-1]:
+            curr_doc = doc
+            for part in dots:
                 if part not in curr_doc:
-                    curr_doc[part] = {}
-                if part not in element:
-                    bad_field = True
                     break
-                element = element[part]
-                curr_doc = curr_doc[part]
-            if not bad_field and dots[-1] in element:
-                curr_doc[dots[-1]] = element[dots[-1]]
+                else:
+                    curr_doc = curr_doc[part]
+            else:
+                # If we found the field in the original document, copy it
+                edit_doc = new_doc
+                for part in dots[:-1]:
+                    if part not in edit_doc:
+                        edit_doc[part] = {}
+                    edit_doc = edit_doc[part]
+                edit_doc[dots[-1]] = curr_doc
+
         return new_doc
 
     def filter_oplog_entry(self, entry):

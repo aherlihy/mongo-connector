@@ -646,17 +646,6 @@ def get_config_options():
     def apply_fields(option, cli_values):
         if cli_values['fields']:
             option.value = cli_values['fields'].split(",")
-        for field in option.value:
-            if '.' in field:
-                print(
-                    "WARNING: mongo-connector can only successfully filter "
-                    "sub-document fields for inserts and updates, "
-                    "not replacements. To catch all changes on "
-                    "a sub-document field, specify the name of the "
-                    "sub-document instead. You are seeing this "
-                    "message because you passed the name of a nested field "
-                    "to the 'fields' option: %s" % field)
-                break
 
     fields = add_option(
         config_key="fields",
@@ -671,22 +660,11 @@ def get_config_options():
         "Will copy over the fields specified into a new document."
         "The '_id', 'ns' and '_ts' fields are always "
         "exported. Supports dot notation for document fields but cannot span "
-        "arrays. Cannot use both 'fields' and exclude_fields.")
+        "arrays. Cannot use both 'fields' and 'exclude_fields'.")
 
     def apply_exclude_fields(option, cli_values):
         if cli_values['exclude_fields']:
             option.value = cli_values['exclude_fields'].split(",")
-        for field in option.value:
-            if '.' in field:
-                print(
-                    "WARNING: mongo-connector can only successfully filter "
-                    "sub-document fields for inserts and updates, "
-                    "not replacements. To catch all changes on "
-                    "a sub-document field, specify the name of the "
-                    "sub-document instead. You are seeing this "
-                    "message because you passed the name of a nested field "
-                    "to the 'fields' option: %s" % field)
-                break
 
     exclude_fields = add_option(
         config_key="exclude_fields",
@@ -697,12 +675,11 @@ def get_config_options():
     # -i to specify the list of fields to exclude
     exclude_fields.add_cli(
         "-e", "--exclude_fields", dest="exclude_fields", help=
-        "Used to specify the list of fields to exclude. "
-        "These fields will be removed from the document."
         "Use a comma separated list of fields to specify multiple "
-        "fields. The '_id', 'ns' and '_ts' fields are always "
-        "exported. Cannot use both fields and exclude_fields. Cannot index "
-        "into arrays (i.e. exclude_fields=['a.b.1']")
+        "fields to exclude. Will delete the fields specified from the "
+        "existing document. The '_id', 'ns' and '_ts' fields are always "
+        "exported. Supports dot notation for document fields but cannot span "
+        "arrays. Cannot use both 'fields' and 'exclude_fields'.")
 
     def apply_namespaces(option, cli_values):
         if cli_values['ns_set']:

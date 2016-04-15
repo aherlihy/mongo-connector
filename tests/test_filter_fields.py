@@ -18,6 +18,7 @@ import sys
 
 sys.path[0:0] = [""]
 
+from mongo_connector import errors
 from mongo_connector.doc_managers.doc_manager_simulator import DocManager
 from mongo_connector.locking_dict import LockingDict
 from mongo_connector.oplog_manager import OplogThread
@@ -532,6 +533,11 @@ class TestFilterFields(unittest.TestCase):
                  'o': document})['o']
             self.assertEqual(filtered_result, filtered_document)
 
+        document = {'name': 'Han Solo', 'a': {'b': {}}}
+        fields = ['name', 'a.b.c']
+        filtered_document = {'name': 'Han Solo'}
+        check_nested(document, fields, filtered_document)
+
         document = {'a': {'b': {'c': 2, 'e': 3}, 'e': 5},
                     'b': 2,
                     'c': {'g': 1}}
@@ -738,16 +744,12 @@ class TestFilterFields(unittest.TestCase):
         self.assertEqual(None, self.opman.exclude_fields)
         self.assertEqual(set([]), self.opman._exclude_fields)
 
-        # Setting both fields and exclude_fields in constructor clears all
-        opman = OplogThread(
+        # Setting both fields and exclude_fields in constructor raises error.
+        self.assertRaises(
+            errors.InvalidConfiguration,
+            OplogThread,
             primary_client=self.primary_conn,
             doc_managers=(DocManager(),),
             oplog_progress_dict=LockingDict(),
             fields=fields,
-            exclude_fields=exclude_fields
-            )
-        self.assertEqual(set([]), opman._fields)
-        self.assertEqual(None, opman.fields)
-        self.assertEqual(None, opman.exclude_fields)
-        self.assertEqual(set([]), opman._exclude_fields)
-        self.assertEqual(None, opman._projection)
+            exclude_fields=exclude_fields)
