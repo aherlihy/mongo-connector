@@ -47,6 +47,22 @@ class TestFilterFields(unittest.TestCase):
         close_client(self.primary_conn)
         self.repl_set.stop()
 
+    def _check_fields(self, opman, fields, exclude_fields, projection):
+        if fields:
+            self.assertEqual(sorted(opman.fields), sorted(fields))
+            self.assertEqual(opman._fields, set(fields))
+        else:
+            self.assertEqual(opman.fields, None)
+            self.assertEqual(opman._fields, set([]))
+        if exclude_fields:
+            self.assertEqual(sorted(opman.exclude_fields), sorted(exclude_fields))
+            self.assertEqual(opman._exclude_fields, set(exclude_fields))
+        else:
+            self.assertEqual(opman.exclude_fields, None)
+            self.assertEqual(opman._exclude_fields, set([]))
+
+        self.assertEqual(opman._projection, projection)
+
     def test_filter_fields(self):
         docman = self.opman.doc_managers[0]
         conn = self.opman.primary_client
@@ -266,12 +282,8 @@ class TestFilterFields(unittest.TestCase):
             exclude_fields=exclude_fields
         )
         exclude_fields.remove('_id')
-        self.assertEqual(set(exclude_fields), opman._exclude_fields)
-        self.assertEqual(sorted(exclude_fields), sorted(opman.exclude_fields))
-        self.assertEqual(None, opman.fields)
-        self.assertEqual(set([]), opman._fields)
-        self.assertEqual(dict((field, 0) for field in exclude_fields),
-                         opman._projection)
+        self._check_fields(opman, [], exclude_fields,
+                           dict((f, 0) for f in exclude_fields))
         extra_fields = exclude_fields + ['extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
@@ -286,12 +298,8 @@ class TestFilterFields(unittest.TestCase):
             oplog_progress_dict=LockingDict(),
             exclude_fields=exclude_fields
         )
-        self.assertEqual(set(exclude_fields), opman._exclude_fields)
-        self.assertEqual(sorted(exclude_fields), sorted(opman.exclude_fields))
-        self.assertEqual(None, opman.fields)
-        self.assertEqual(set([]), opman._fields)
-        self.assertEqual(dict((field, 0) for field in exclude_fields),
-                         opman._projection)
+        self._check_fields(opman, [], exclude_fields,
+                           dict((f, 0) for f in exclude_fields))
         extra_fields = extra_fields + ['extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
@@ -306,10 +314,7 @@ class TestFilterFields(unittest.TestCase):
             oplog_progress_dict=LockingDict(),
             exclude_fields=exclude_fields
         )
-        self.assertEqual(set([]), opman._exclude_fields)
-        self.assertEqual(None, opman.exclude_fields)
-        self.assertEqual(set([]), opman._fields)
-        self.assertEqual(None, opman._projection)
+        self._check_fields(opman, [], [], None)
         extra_fields = exclude_fields + ['extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
@@ -323,10 +328,7 @@ class TestFilterFields(unittest.TestCase):
             oplog_progress_dict=LockingDict(),
             exclude_fields=None
         )
-        self.assertEqual(set([]), opman._exclude_fields)
-        self.assertEqual(None, opman.exclude_fields)
-        self.assertEqual(set([]), opman._fields)
-        self.assertEqual(None, opman._projection)
+        self._check_fields(opman, [], [], None)
         extra_fields = ['_id', 'extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
@@ -342,12 +344,8 @@ class TestFilterFields(unittest.TestCase):
             oplog_progress_dict=LockingDict(),
             fields=fields
         )
-        self.assertEqual(set(fields), opman._fields)
-        self.assertEqual(sorted(fields), sorted(opman.fields))
-        self.assertEqual(None, opman.exclude_fields)
-        self.assertEqual(set([]), opman._exclude_fields)
-        self.assertEqual(dict((field, 1) for field in fields),
-                         opman._projection)
+        self._check_fields(opman, fields, [],
+                           dict((f, 1) for f in fields))
         extra_fields = fields + ['extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
@@ -363,12 +361,8 @@ class TestFilterFields(unittest.TestCase):
             fields = fields
         )
         fields.append('_id')
-        self.assertEqual(set(fields), opman._fields)
-        self.assertEqual(sorted(fields), sorted(opman.fields))
-        self.assertEqual(None, opman.exclude_fields)
-        self.assertEqual(set([]), opman._exclude_fields)
-        self.assertEqual(dict((field, 1) for field in fields),
-                         opman._projection)
+        self._check_fields(opman, fields, [],
+                           dict((f, 1) for f in fields))
         extra_fields = fields + ['extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
@@ -383,12 +377,8 @@ class TestFilterFields(unittest.TestCase):
             oplog_progress_dict=LockingDict(),
             fields = fields
         )
-        self.assertEqual(set(fields), opman._fields)
-        self.assertEqual(fields, opman.fields)
-        self.assertEqual(None, opman.exclude_fields)
-        self.assertEqual(set([]), opman._exclude_fields)
-        self.assertEqual(dict((field, 1) for field in fields),
-                         opman._projection)
+        self._check_fields(opman, fields, [],
+                           dict((f, 1) for f in fields))
         extra_fields = fields + ['extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
@@ -400,12 +390,8 @@ class TestFilterFields(unittest.TestCase):
             primary_client=self.primary_conn,
             doc_managers=(DocManager(),),
             oplog_progress_dict=LockingDict(),
-            )
-        self.assertEqual(set([]), opman._fields)
-        self.assertEqual(None, opman.fields)
-        self.assertEqual(None, opman.exclude_fields)
-        self.assertEqual(set([]), opman._exclude_fields)
-        self.assertEqual(None, opman._projection)
+        )
+        self._check_fields(opman, [], [], None)
         extra_fields = ['_id', 'extra1', 'extra2']
         filtered = opman.filter_oplog_entry(
             {'op': 'i',
@@ -417,13 +403,8 @@ class TestFilterFields(unittest.TestCase):
         exclude_fields = ["_id", "title", "content", "author"]
         exclude_fields.remove('_id')
         self.opman.exclude_fields = exclude_fields
-        self.assertEqual(set(exclude_fields), self.opman._exclude_fields)
-        self.assertEqual(sorted(exclude_fields),
-                         sorted(self.opman.exclude_fields))
-        self.assertEqual(None, self.opman.fields)
-        self.assertEqual(set([]), self.opman._fields)
-        self.assertEqual(dict((field, 0) for field in exclude_fields),
-                         self.opman._projection)
+        self._check_fields(self.opman, [], exclude_fields,
+                           dict((f, 0) for f in exclude_fields))
         extra_fields = exclude_fields + ['extra1', 'extra2']
         filtered = self.opman.filter_oplog_entry(
             {'op': 'i',
@@ -433,9 +414,8 @@ class TestFilterFields(unittest.TestCase):
         # Test without "_id" field included in exclude_fields
         exclude_fields = ["title", "content", "author"]
         self.opman.exclude_fields = exclude_fields
-        self.assertEqual(set(exclude_fields), self.opman._exclude_fields)
-        self.assertEqual(sorted(exclude_fields),
-                         sorted(self.opman.exclude_fields))
+        self._check_fields(self.opman, [], exclude_fields,
+                           dict((f, 0) for f in exclude_fields))
         extra_fields = extra_fields + ['extra1', 'extra2']
         filtered = self.opman.filter_oplog_entry(
             {'op': 'i',
@@ -445,8 +425,7 @@ class TestFilterFields(unittest.TestCase):
         # Test with only "_id" field in exclude_fields
         exclude_fields = ["_id"]
         self.opman.exclude_fields = exclude_fields
-        self.assertEqual(set([]), self.opman._exclude_fields)
-        self.assertEqual(None, self.opman.exclude_fields)
+        self._check_fields(self.opman, [], [], None)
         extra_fields = exclude_fields + ['extra1', 'extra2']
         filtered = self.opman.filter_oplog_entry(
             {'op': 'i',
@@ -455,8 +434,7 @@ class TestFilterFields(unittest.TestCase):
 
         # Test with nothing set for exclude_fields
         self.opman.exclude_fields = None
-        self.assertEqual(set([]), self.opman._exclude_fields)
-        self.assertEqual(None, self.opman.exclude_fields)
+        self._check_fields(self.opman, [], [], None)
         extra_fields = ['_id', 'extra1', 'extra2']
         filtered = self.opman.filter_oplog_entry(
             {'op': 'i',
@@ -467,12 +445,7 @@ class TestFilterFields(unittest.TestCase):
         # Test with "_id" field included in fields
         fields = ["_id", "title", "content", "author"]
         self.opman.fields = fields
-        self.assertEqual(set(fields), self.opman._fields)
-        self.assertEqual(sorted(fields), sorted(self.opman.fields))
-        self.assertEqual(dict((field, 1) for field in fields),
-                         self.opman._projection)
-        self.assertEqual(None, self.opman.exclude_fields)
-        self.assertEqual(set([]), self.opman._exclude_fields)
+        self._check_fields(self.opman, fields, [], dict((f, 1) for f in fields))
         extra_fields = fields + ['extra1', 'extra2']
         filtered = self.opman.filter_oplog_entry(
             {'op': 'i',
@@ -483,12 +456,7 @@ class TestFilterFields(unittest.TestCase):
         fields = ["title", "content", "author"]
         self.opman.fields = fields
         fields.append('_id')
-        self.assertEqual(set(fields), self.opman._fields)
-        self.assertEqual(sorted(fields), sorted(self.opman.fields))
-        self.assertEqual(dict((field, 1) for field in fields),
-                         self.opman._projection)
-        self.assertEqual(None, self.opman.exclude_fields)
-        self.assertEqual(set([]), self.opman._exclude_fields)
+        self._check_fields(self.opman, fields, [], dict((f, 1) for f in fields))
         extra_fields = fields + ['extra1', 'extra2']
         filtered = self.opman.filter_oplog_entry(
             {'op': 'i',
@@ -498,11 +466,7 @@ class TestFilterFields(unittest.TestCase):
         # Test with only "_id" field
         fields = ["_id"]
         self.opman.fields = fields
-        self.assertEqual(set(fields), self.opman._fields)
-        self.assertEqual(fields, self.opman.fields)
-        self.assertEqual({"_id": 1}, self.opman._projection)
-        self.assertEqual(None, self.opman.exclude_fields)
-        self.assertEqual(set([]), self.opman._exclude_fields)
+        self._check_fields(self.opman, fields, [], dict((f, 1) for f in fields))
         extra_fields = fields + ['extra1', 'extra2']
         filtered = self.opman.filter_oplog_entry(
             {'op': 'i',
@@ -511,11 +475,7 @@ class TestFilterFields(unittest.TestCase):
 
         # Test with no fields set
         self.opman.fields = None
-        self.assertEqual(set([]), self.opman._fields)
-        self.assertEqual(None, self.opman.fields)
-        self.assertEqual(None, self.opman._projection)
-        self.assertEqual(None, self.opman.exclude_fields)
-        self.assertEqual(set([]), self.opman._exclude_fields)
+        self._check_fields(self.opman, [], [], None)
         extra_fields = ['_id', 'extra1', 'extra2']
         filtered = self.opman.filter_oplog_entry(
             {'op': 'i',
@@ -686,70 +646,42 @@ class TestFilterFields(unittest.TestCase):
         fields = ['a', 'b', 'c', '_id']
         exclude_fields = ['x', 'y', 'z']
 
-        # Set fields
-        self.opman.fields = fields
-        self.assertEqual(set(fields), self.opman._fields)
-        self.assertEqual(sorted(fields), sorted(self.opman.fields))
-        self.assertEqual(dict((field, 1) for field in fields),
-                         self.opman._projection)
-        self.assertEqual(None, self.opman.exclude_fields)
-        self.assertEqual(set([]), self.opman._exclude_fields)
-
-        # Setting fields to None clears everything
-        self.opman.fields = None
-        self.assertEqual(set([]), self.opman._fields)
-        self.assertEqual(set([]), self.opman._exclude_fields)
-        self.assertEqual(None, self.opman.fields)
-        self.assertEqual(None, self.opman.exclude_fields)
-        self.assertEqual(None, self.opman._projection)
-
-        # Setting exclude_fields
-        self.opman.exclude_fields = exclude_fields
-        self.assertEqual(set(exclude_fields), self.opman._exclude_fields)
-        self.assertEqual(sorted(exclude_fields),
-                         sorted(self.opman.exclude_fields))
-        self.assertEqual(
-            dict((exclude_field, 0) for exclude_field in exclude_fields),
-            self.opman._projection)
-        self.assertEqual(None, self.opman.fields)
-        self.assertEqual(set([]), self.opman._fields)
-
-        # Setting exclude_fields to None clears everything
-        self.opman.exclude_fields = None
-        self.assertEqual(set([]), self.opman._fields)
-        self.assertEqual(set([]), self.opman._exclude_fields)
-        self.assertEqual(None, self.opman.fields)
-        self.assertEqual(None, self.opman.exclude_fields)
-        self.assertEqual(None, self.opman._projection)
-
-        # Setting fields then exclude_fields keeps the most recent
-        self.opman.fields = fields
-        self.opman.exclude_fields = exclude_fields
-        self.assertEqual(set(exclude_fields), self.opman._exclude_fields)
-        self.assertEqual(sorted(exclude_fields),
-                         sorted(self.opman.exclude_fields))
-        self.assertEqual(dict((exclude_field, 0)
-                              for exclude_field in exclude_fields),
-                         self.opman._projection)
-        self.assertEqual(None, self.opman.fields)
-        self.assertEqual(set([]), self.opman._fields)
-
-        # Setting exclude_fields then fields keeps the most recent
-        self.opman.exclude_fields = exclude_fields
-        self.opman.fields = fields
-        self.assertEqual(set(fields), self.opman._fields)
-        self.assertEqual(sorted(fields), sorted(self.opman.fields))
-        self.assertEqual(dict((field, 1) for field in fields),
-                         self.opman._projection)
-        self.assertEqual(None, self.opman.exclude_fields)
-        self.assertEqual(set([]), self.opman._exclude_fields)
-
-        # Setting both fields and exclude_fields in constructor raises error.
-        self.assertRaises(
-            errors.InvalidConfiguration,
-            OplogThread,
+        # Test setting both to None in constructor
+        opman = OplogThread(
             primary_client=self.primary_conn,
             doc_managers=(DocManager(),),
             oplog_progress_dict=LockingDict(),
-            fields=fields,
-            exclude_fields=exclude_fields)
+            fields=None,
+            exclude_fields=None
+        )
+        self._check_fields(opman, [], [], None)
+        opman = OplogThread(
+            primary_client=self.primary_conn,
+            doc_managers=(DocManager(),),
+            oplog_progress_dict=LockingDict(),
+            fields=None,
+            exclude_fields=exclude_fields
+        )
+        self._check_fields(opman, [], exclude_fields,
+                           dict((f, 0) for f in exclude_fields))
+        # Test setting fields when exclude_fields is set
+        self.assertRaises(
+            errors.InvalidConfiguration, setattr, opman, "fields", fields)
+        self.assertRaises(
+            errors.InvalidConfiguration, setattr, opman, "fields", None)
+        opman = OplogThread(
+            primary_client=self.primary_conn,
+            doc_managers=(DocManager(),),
+            oplog_progress_dict=LockingDict(),
+            exclude_fields=None,
+            fields=fields
+        )
+        self._check_fields(opman, fields, [], dict((f, 1) for f in fields))
+        self.assertRaises(errors.InvalidConfiguration, setattr, opman,
+                          "exclude_fields", exclude_fields)
+        self.assertRaises(errors.InvalidConfiguration, setattr, opman,
+                          "exclude_fields", None)
+        self.assertRaises(
+            OplogThread, primary_client=self.primary_conn,
+            doc_managers=(DocManager(),), oplog_process_dict=LockingDict(),
+            fields=fields, exclude_fields=exclude_fields)

@@ -84,12 +84,10 @@ class OplogThread(threading.Thread):
         self.continue_on_error = kwargs.get('continue_on_error', False)
 
         # Set of fields to export
-        self.fields = None
-        self.exclude_fields = None
-        if kwargs.get('exclude_fields', []) and kwargs.get('fields', []):
-            raise errors.InvalidConfiguration(
-                "Cannot set both 'fields' and 'exclude_fields'.")
-        elif kwargs.get('fields', []):
+        self._fields = set([])
+        self._exclude_fields = set([])
+        self._projection = None
+        if kwargs.get('fields', []):
             self.fields = kwargs['fields']
         elif kwargs.get('exclude_fields', []):
             self.exclude_fields = kwargs.get('exclude_fields', [])
@@ -116,22 +114,27 @@ class OplogThread(threading.Thread):
 
     @fields.setter
     def fields(self, value):
+        if self._exclude_fields:
+            raise errors.InvalidConfiguration(
+                "Cannot set 'fields' when 'exclude_fields' has already "
+                "been set to non-empty list.")
         if value:
             self._fields = set(value)
             # Always include _id field
             self._fields.add('_id')
-            self._exclude_fields = set([])
             self._projection = dict((field, 1) for field in self._fields)
         else:
             self._fields = set([])
-            self._exclude_fields = set([])
             self._projection = None
 
     @exclude_fields.setter
     def exclude_fields(self, value):
+        if self._fields:
+            raise errors.InvalidConfiguration(
+                "Cannot set 'exclude_fields' when 'fields' has already "
+                "been set to non-empty list.")
         if value:
             self._exclude_fields = set(value)
-            self._fields = set([])
             if '_id' in value:
                 LOG.warning("OplogThread: Cannot exclude '_id' field, "
                             "ignoring")
@@ -143,7 +146,6 @@ class OplogThread(threading.Thread):
                     (field, 0) for field in self._exclude_fields)
         else:
             self._exclude_fields = set([])
-            self._fields = set([])
             self._projection = None
 
     @property
@@ -406,9 +408,7 @@ class OplogThread(threading.Thread):
                 # If we found the field in the original document, copy it
                 edit_doc = new_doc
                 for part in dots[:-1]:
-                    if part not in edit_doc:
-                        edit_doc[part] = {}
-                    edit_doc = edit_doc[part]
+                    edit_doc = edit_doc.setdefault(part, {})
                 edit_doc[dots[-1]] = curr_doc
 
         return new_doc
