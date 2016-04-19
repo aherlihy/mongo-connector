@@ -84,13 +84,10 @@ class OplogThread(threading.Thread):
         self.continue_on_error = kwargs.get('continue_on_error', False)
 
         # Set of fields to export
-        self._fields = set([])
         self._exclude_fields = set([])
-        self._projection = None
-        if kwargs.get('fields', []):
-            self.fields = kwargs['fields']
-        elif kwargs.get('exclude_fields', []):
-            self.exclude_fields = kwargs.get('exclude_fields', [])
+        self.fields = kwargs.get('fields', None)
+        if kwargs.get('exclude_fields', None):
+            self.exclude_fields = kwargs['exclude_fields']
 
         LOG.info('OplogThread: Initializing oplog thread')
 

@@ -683,6 +683,8 @@ class TestFilterFields(unittest.TestCase):
                           "exclude_fields", None)
         self.assertRaises(
             errors.InvalidConfiguration, OplogThread,
-            primary_client=self.primary_conn, doc_managers=(DocManager(),),
-            oplog_process_dict=LockingDict(), fields=fields,
+            self.primary_conn,
+            (DocManager(),),
+            LockingDict(),
+            fields=fields,
             exclude_fields=exclude_fields)
